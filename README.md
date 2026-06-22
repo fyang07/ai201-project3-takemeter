@@ -94,54 +94,52 @@ Post: {text}
 
 | Model | Accuracy |
 |-------|----------|
-| Zero-shot baseline (LLaMA 3.3 70B) | 71% |
-| Fine-tuned DistilBERT | 84% |
+| Zero-shot baseline (LLaMA 3.3 70B) | 1.000 (100%) |
+| Fine-tuned DistilBERT | 0.800 (80%)|
 
 ### Per-Class Metrics — Fine-Tuned Model
 
 | Label | Precision | Recall | F1 |
 |-------|-----------|--------|----|
-| analysis | 0.85 | 0.82 | 0.83 |
-| hot_take | 0.78 | 0.83 | 0.80 |
-| reaction | 0.95 | 0.93 | 0.94 |
+| analysis | 1.00 | 1.00 | 1.00 |
+| hot_take | 0.62 | 1.00 | 0.77 |
+| reaction | 1.00 | 0.40 | 0.57 |
 
 ### Per-Class Metrics — Baseline
 
 | Label | Precision | Recall | F1 |
 |-------|-----------|--------|----|
-| analysis | 0.72 | 0.68 | 0.70 |
-| hot_take | 0.63 | 0.71 | 0.67 |
-| reaction | 0.84 | 0.80 | 0.82 |
+| analysis | 1.00 | 1.00 | 1.00 |
+| hot_take | 1.00 | 1.00 | 1.00 |
+| reaction | 1.00 | 1.00 | 1.00 |
 
 ### Confusion Matrix — Fine-Tuned Model
 
 |  | Predicted: analysis | Predicted: hot_take | Predicted: reaction |
 |--|---------------------|---------------------|---------------------|
-| **True: analysis** | 27 | 5 | 1 |
-| **True: hot_take** | 4 | 25 | 1 |
-| **True: reaction** | 0 | 1 | 29 |
+| **True: analysis** | 10 | 0 | 0 |
+| **True: hot_take** | 0 | 10 | 0 |
+| **True: reaction** | 0 | 6 | 4 |
 
 The dominant error pattern is analysis ↔ hot_take confusion. Reaction is classified almost perfectly by both models, confirming that its surface features (caps, exclamation points, emotional vocabulary) are easy to detect. The harder boundary is between analysis and hot_take.
 
 ### 3 Wrong Predictions — Analysis
 
 **Wrong prediction 1:**
-Post: *"The most delusional take I see constantly is that mechanics matter more than game sense. Game sense wins games. Mechanics just make it look pretty."*
-True label: hot_take | Predicted: analysis
+Post: *"the feeling when you hit your skill shot on the first try in a clutch situation is genuinely better than most things in real life"*
+True label: reaction| Predicted: hot_take | Confidence: 0.34
 
-Why it failed: This post makes a comparative claim ("game sense vs. mechanics") that has the structural form of an argument. The model appears to have learned that comparative claims → analysis. But this post doesn't provide any evidence — it states the comparison as fact. The surface structure of a claim looks like analysis even when the claim is unsupported.
-
+Why it failed: This is a calm, reflective reaction post with no caps or exclamation points. The model learned to associate reactions with high-energy emotional language. Without those surface signals, it defaulted to hot_take because the post makes a comparative claim ("better than most things in real life").
 **Wrong prediction 2:**
-Post: *"Riot balances around professional play and completely ignores solo queue and I'm done pretending that's okay."*
-True label: hot_take | Predicted: reaction
+Post: "the mutual respect bow after a really clean 1v1 duel in lane with no ganks from either jungler is peak League of Legends"
+True label: reaction | Predicted: hot_take | Confidence: 0.35
 
-Why it failed: The phrase "I'm done pretending" signals emotional frustration, which the model associates with reaction. But this is a stated opinion about Riot's design decisions, not a reaction to a specific moment. The emotional language is incidental — the post is asserting a position.
-
+Why it failed: This post describes a specific in-game moment but uses calm, appreciative language. The phrase "peak League of Legends" reads like an opinion statement, which the model associates with hot_take framing.
 **Wrong prediction 3:**
-Post: *"Cassiopeia's lane strength is directly tied to her ability to maintain Twin Fang procs consistently. Her E has a 0.75 second cooldown on poisoned targets, which means in a 3-second trade she can deal 4 E hits."*
-True label: analysis | Predicted: hot_take
+Post: *"I've been playing this game since I was 14 and I'm now 22 and something about that makes me feel things I can't quite put into words"*
+True label: reaction | Predicted: hot_take | Confidence: 0.35
 
-Why it failed: This is a short analysis post with one specific claim and one piece of supporting math. The model may have seen short posts as hot_takes more often in training. The post lacks the multi-paragraph structure that the model associates with analysis, even though the content is analytical.
+Why it failed: This is a personal emotional reflection with no game-specific language, caps, or exclamation points. The model had no surface features to identify it as a reaction and defaulted to hot_take.
 
 ### Sample Classifications
 
@@ -159,11 +157,11 @@ The Nautilus prediction (0.91) is reasonable: the post opens with a positional c
 
 ## Reflection: What the Model Learned vs. What I Intended
 
-I intended the model to distinguish posts by their **reasoning structure** — whether they argue, assert, or react. What the model actually learned is closer to **surface-level signal**: caps and exclamation points for reaction, specific numbers and champion names for analysis, and short opinionated sentences for hot_take.
-
-This is most visible in the analysis/hot_take confusion. The model learned that longer posts with champion-specific language are analysis. But some of the most opinionated hot_takes in the dataset are also long and champion-specific — they just don't provide supporting evidence. The model can't reliably detect the absence of evidence; it can only detect the presence of analytical surface features.
-
-Reaction is classified almost perfectly because its surface features are unambiguous. The model didn't need to understand emotional content — it just learned to recognize capitalization patterns and exclamation points.
+I intended the model to distinguish posts by their reasoning structure — whether they argue, assert, or react. What the model actually learned is much narrower: it learned to detect surface-level emotional signals as the marker for reaction posts.
+This is clearest in the error pattern. All 6 wrong predictions were reaction posts misclassified as hot_take — and they were all the same type of reaction: calm, reflective, lowercase, no exclamation points. Posts like "the feeling when you hit your skill shot on the first try in a clutch situation is genuinely better than most things in real life" are genuinely emotional reactions, but they don't look like reactions on the surface.
+The model learned that reaction means caps, exclamation points, and high-energy language. When a reaction post was written in a quiet, personal tone, the model had no signal to work with and defaulted to hot_take — the label that best fits opinionated-sounding text without obvious emotional markers.
+Analysis and hot_take were both classified perfectly, which suggests the model learned those boundaries well. But this may also reflect that the synthetic training data made those boundaries too clean. Real Reddit posts would have more genuine ambiguity between analysis and hot_take than my dataset captured.
+The baseline getting 100% while the fine-tuned model got 80% tells a specific story: the LLM understood the semantic meaning of calm emotional posts and correctly labeled them as reactions. The fine-tuned DistilBERT only learned the surface patterns present in 140 training examples, which wasn't enough to capture the full range of what a reaction post looks like.
 
 ---
 
